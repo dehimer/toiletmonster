@@ -1,0 +1,15 @@
+{
+  "name": "Twinst",
+  "description": "Realtime feed of twitter images by tag.",
+  "author": {
+    "name": "Novikov Denis",
+    "email": "den-vse@yandex.ru",
+    "url": "http://dehimer.github.io/"
+  },
+  "engines": {
+    "node": ">= 0.4.5"
+  },
+  "dependencies": {
+    "socket.io": ">=1.0.6"
+  }
+}

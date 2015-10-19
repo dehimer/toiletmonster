@@ -1,0 +1,611 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no">
+
+	<meta name="apple-mobile-web-app-capable" content="yes">
+	<meta name="mobile-web-app-capable" content="yes">
+
+	<title>Toilet Monster</title>
+
+	<script src="sprite.js"></script>
+
+	<style>
+	canvas {
+		display: block;
+		position: absolute;
+		margin: auto;
+		top: 0;
+		bottom: 0;
+		left: 0;
+		right: 0;
+	}
+	</style>
+</head>
+<body>
+<audio id="crank_sound" src="assets/crank.wav" style="display: none;"></audio>
+<audio id="sheet_down_sound" src="assets/splash2.wav" style="display: none;"></audio>
+<audio id="gameover_sound" src="assets/gameover.mp3" style="display: none;"></audio>
+<noscript>
+<p>For full functionality of this page it is necessary to enable JavaScript.
+Here are the <a href="http://www.enable-javascript.com/" target="_blank">
+instructions how to enable JavaScript in your web browser</a>.</p>
+</noscript>
+<script>
+
+
+var
+
+// Game vars //
+
+canvas,
+ctx,
+width,
+height,
+
+frames = 0,
+score = 0,
+best = localStorage.getItem("best") || 0,
+gameover_sound = document.getElementById("gameover_sound"),
+// State vars //
+
+currentstate,
+states = {
+	Splash: 0, Game: 1, Score: 2
+},
+monster = {
+
+	x: -100,
+	y: -100,
+	width: 40,
+	height: 50,
+
+	frame: 0,
+	animation: [0, 1, 2, 1], // animation sequence
+	// animation: [0], // animation sequence
+	radius: 25,
+	targetpos: {
+		x: -100,
+		y: -100
+	},
+	eating: false,
+	reset: function () {
+		this.x = width/2 - 20;
+		this.y = height - 50;
+		this.targetpos = {
+			x: this.x,
+			y: this.y
+		}
+	},
+	eat_sound: document.getElementById("crank_sound"),//new Audio("assets/crank.wav"),
+
+
+	/**
+	 * Update sprite animation and position of bird
+	 */
+	update: function() {
+		// make sure animation updates and plays faster in gamestate
+		var n = currentstate === states.Splash ? 10 : 25;
+		this.frame += frames % n === 0 ? 1 : 0;
+		// console.log(this.frame+':'+this.animation.length)
+		this.frame %= this.animation.length;
+
+		// console.log(this.y +'>'+ sheet_level.y)
+
+		this.targetpos.y = sheet_level.y-20;
+
+
+		this.x += (this.targetpos.x-this.x)/5;
+		this.y += (this.targetpos.y-this.y)/5;
+		// this.y += (monster.targetpos.y-this.y)/10;
+
+		// this.x = this.x < 0 ? 0 : this.x;
+		// console.log(this.x)
+
+		if(this.y < 10)
+		{
+			gameover_sound.pause();
+			gameover_sound.currentTime = 0;
+			gameover_sound.play();
+			currentstate = states.Score;
+		}
+	},
+
+	/**
+	 * Draws bird with rotation to canvas ctx
+	 * 
+	 * @param  {CanvasRenderingContext2D} ctx the context used for
+	 *                                        drawing
+	 */
+	draw: function(ctx) {
+		ctx.save();
+		// translate and rotate ctx coordinatesystem
+		ctx.translate(this.x, this.y);
+
+
+		// draws the bird with center in origo
+		var n = this.eating?this.eatingframe:this.animation[this.frame];
+
+		// draws the bird with center in origo
+		s_monster[n].draw(ctx, -s_monster[n].width/2, -s_monster[n].height/2);
+		ctx.restore();
+	}
+},
+
+/**
+ * The poops
+ */
+poops = {
+
+	_poops: [],
+	poopsinterval: 30,
+	// padding: 80, // TODO: Implement paddle variable
+	sheet_down_sound: document.getElementById("sheet_down_sound"),
+	/**
+	 * Empty poops array
+	 */
+	reset: function() {
+		this._poops = [];
+	},
+
+	/**
+	 * Create, push and update all poops in pipe array
+	 */
+	update: function() {
+		// add new pipe each 100 frames
+		// console.log(frames+':'+this.poopsinterval+' =0? '+(frames % this.poopsinterval === 0))
+			// this.poopsinterval = parseInt(Math.random()*50+70);
+		if (frames % this.poopsinterval === 0) {
+			// calculate y position
+			var _x = s_ground.left.width+(width-s_poo.width-s_ground.left.width-s_ground.right.width)*Math.random();
+			// create and push pipe to array
+			this._poops.push({
+				x: _x,
+				y: -s_poo.height,
+				width: s_poo.width,
+				height: s_poo.height
+			});
+		}
+		var eated = false;
+		for (var i = 0, len = this._poops.length; i < len; i++) {
+			var p = this._poops[i];
+
+			if (i === 0) 
+			{
+
+				
+				if((p.x >= monster.x-35) && ((p.x+p.width) <= (monster.x+35)))
+				{
+
+
+					var y_poo_monster = monster.y - (p.y+p.height) - 30;
+
+					if(y_poo_monster < 30)
+					{
+						monster.eating = true;
+						monster.eatingframe = 4;
+					
+						monster.targetpos.x = p.x+p.width/2;
+					}
+
+					// console.log(y_poo_monster +':'+(y_poo_monster  <= 0))
+					if( y_poo_monster + 40 <= 0 )
+					{
+						
+						// console.log('+1')
+						eated = true;
+						p.y = height+1;
+						score += 1;
+						monster.eating = false;
+
+						monster.eat_sound.pause();
+						monster.eat_sound.currentTime = 0;
+						monster.eat_sound.play();
+
+						// sheet_level.targetpos.y += height/20;
+					}
+					else if(y_poo_monster < -32)
+					{
+						// monster.targetpos.y += 10;
+						monster.eating = true;
+						monster.eatingframe = 6;
+					}
+					else if(y_poo_monster < 0)
+					{
+						// monster.targetpos.y -= 10;
+						monster.eating = true;
+						monster.eatingframe = 5;
+					}
+					else if(y_poo_monster < 30)
+					{
+						monster.eating = true;
+						monster.eatingframe = 4;
+					}
+					else if(y_poo_monster < 150)
+					{
+						monster.eating = true;
+						monster.eatingframe = 3;
+					}
+					/*
+					
+					*/
+					
+					
+				}
+				else
+				{
+					monster.eating = false;
+				}
+
+
+				/*
+				// collision check, calculates x/y difference and
+				// use normal vector length calculation to determine
+				// intersection
+				var cx  = Math.min(Math.max(bird.x, p.x), p.x+p.width);
+				var cy1 = Math.min(Math.max(bird.y, p.y), p.y+p.height);
+				var cy2 = Math.min(Math.max(bird.y, p.y+p.height+80), p.y+2*p.height+80);
+				// closest difference
+				var dx  = bird.x - cx;
+				var dy1 = bird.y - cy1;
+				var dy2 = bird.y - cy2;
+				// vector length
+				var d1 = dx*dx + dy1*dy1;
+				var d2 = dx*dx + dy2*dy2;
+				var r = bird.radius*bird.radius;
+				// determine intersection
+				if (r > d1 || r > d2) {
+					currentstate = states.Score;
+				}
+				*/
+				
+			}
+			// move pipe and remove if outside of canvas
+			p.y += 2;
+			if (p.y > sheet_level.y) {
+
+				if(!eated)
+				{
+					/*score -= 2;
+					if(score < 0)
+					{
+						currentstate = states.Score;
+					}*/
+					this.sheet_down_sound.pause();
+					this.sheet_down_sound.currentTime = 0;
+					this.sheet_down_sound.play();
+					sheet_level.targetpos.y -= height/20;
+				}
+				eated = false;
+
+				this._poops.splice(i, 1);
+				i--;
+				len--;
+			}
+		}
+	},
+
+	/**
+	 * Draw all poops to canvas context.
+	 * 
+	 * @param  {CanvasRenderingContext2D} ctx the context used for
+	 *                                        drawing
+	 */
+	draw: function(ctx) {
+		for (var i = 0, len = this._poops.length; i < len; i++) {
+			var p = this._poops[i];
+			s_poo.draw(ctx, p.x, p.y);
+		}
+	}
+},
+
+sheet_level = {
+
+	targetpos:{
+		y:-10
+	},
+	y: -10,
+	offsetX: 0,
+
+	reset: function () {
+		this.targetpos.y = height - 70;
+		// this.y = height - 50;
+	},
+
+	/**
+	 * Update sprite animation and position of bird
+	 */
+	update: function() {
+		
+
+		if(frames % 100 === 0)
+		{
+			console.log('!')
+			if(this.offsetX < 0)
+			{
+				this.offsetX += s_sheet_level.width/2;
+			}
+			else
+			{
+				this.offsetX -= s_sheet_level.width/2;
+			}
+			
+		}
+
+
+		if (frames % 7 === 0) {
+			this.targetpos.y += 1;
+		}
+		
+		if(this.targetpos.y > (height - 50))
+		{
+			this.targetpos.y = (height - 50);
+		}
+
+		this.y += (this.targetpos.y-this.y)/10;
+
+		// if( this.y > (height - 50) )
+		// {
+		// 	this.y = (height - 50);
+		// }
+
+		// if(this.y < 0)
+		// {
+		// 	currentstate = states.Score;
+		// }
+	},
+
+	/**
+	 * Draws bird with rotation to canvas ctx
+	 * 
+	 * @param  {CanvasRenderingContext2D} ctx the context used for
+	 *                                        drawing
+	 */
+	draw: function(ctx) {
+
+
+		ctx.save();
+
+
+		ctx.beginPath();
+		ctx.rect(0, this.y+2, width, height-this.y-2);
+		// ctx.fillStyle = '#582205';
+		// ctx.fill();
+		var grd = ctx.createLinearGradient(0, this.y+2, 0, canvas.height);
+
+		// grd.addColorStop(0.0, '#502005');
+		grd.addColorStop(0.0, '#502005'); 
+		grd.addColorStop(1.0, '#000000');
+
+		ctx.fillStyle = grd;
+		ctx.fill();
+
+		ctx.restore();
+
+		var up_lines_count = width/s_sheet_level.width+1;
+
+		for(var i = 0; i < up_lines_count; i++)
+		{
+			// s_sheet_level.draw(ctx, this.offsetX+s_sheet_level.width*i, this.y);
+		}
+
+
+		//рисуем стенки
+		var lr_s_count = parseInt((height-s_ground.leftbottom.height)/s_ground.left.height)+1;
+
+		for(var i = 0; i < lr_s_count; i++) 
+		{
+			s_ground.left.draw(ctx, 0, s_ground.left.height*i);
+			s_ground.right.draw(ctx, width-s_ground.right.width, s_ground.right.height*i);
+		}
+
+		var d_s_count = parseInt((width-s_ground.leftbottom.width-s_ground.rightbottom.width)/s_ground.bottom.width)+1;
+
+		for(var i = 0; i < d_s_count; i++)
+		{
+			s_ground.bottom.draw(ctx, s_ground.leftbottom.width+s_ground.bottom.width*i-5, height-s_ground.bottom.height);
+		}
+
+		//углы
+		s_ground.leftbottom.draw(ctx, 0, height-s_ground.leftbottom.height-1);
+		s_ground.rightbottom.draw(ctx, width-s_ground.rightbottom.width, height-s_ground.rightbottom.height);
+	}
+};
+
+
+
+/**
+ * Called on mouse or touch press. Update and change state
+ * depending on current game state.
+ * 
+ * @param  {MouseEvent/TouchEvent} evt tho on press event
+ */
+function onuserevent(evt) {
+	// alert('!')
+	// console.log(evt)
+	switch (currentstate) {
+
+		// change state and update bird velocity
+		case states.Splash:
+			currentstate = states.Game;
+			break;
+
+		// update bird velocity
+		case states.Game:
+			var mx = evt.offsetX, my = evt.offsetY;
+
+			if (mx == null || my == null) {
+				mx = evt.touches[0].clientX;
+				my = evt.touches[0].clientY;
+			}
+
+			/*monster.targetpos = {
+				x: mx,
+				y: my
+			};*/
+			monster.targetpos.x = mx;
+
+			break;
+
+		// change state if event within okbtn bounding box
+		case states.Score:
+
+			if(evt.type === 'mousedown' || evt.type === 'touchstart')
+			{
+				monster.reset();
+				poops.reset();
+
+				currentstate = states.Game;
+
+				score = 0;
+				sheet_level.reset();
+			}
+
+			break;
+
+	}
+}
+
+/**
+ * Starts and initiate the game
+ */
+function main() {
+	// create canvas and set width/height
+	canvas = document.createElement("canvas");
+
+	width = window.innerWidth;
+	height = window.innerHeight;
+
+	var evts = ["touchmove", 'touchstart'];
+	if (width >= 500) {
+		width  = 320;
+		height = 480;
+		canvas.style.border = "10px solid #09f";
+		evts = ["mousemove", "mousedown"];
+	}
+
+	// listen for input event
+	evts.forEach(function (evt) {
+		document.addEventListener(evt, onuserevent);
+	})
+
+	canvas.width = width;
+	canvas.height = height;
+
+	monster.reset();
+	sheet_level.reset();
+	
+
+	if (!(!!canvas.getContext && canvas.getContext("2d"))) {
+		alert("Your browser doesn't support HTML5, please update to latest version");
+	}
+	ctx = canvas.getContext("2d");
+
+	currentstate = states.Game;
+	// append canvas to document
+	document.body.appendChild(canvas);
+
+	// initate graphics and okbtn
+	var img = new Image();
+	img.onload = function() {
+		initSprites(this);
+
+		ctx.fillStyle = s_bg.color;
+
+		run();
+	}
+	img.src = "assets/sheet.png";
+}
+
+/**
+ * Starts and update gameloop
+ */
+function run() {
+
+	var lastdate = new Date();
+	var newdate;
+
+	var loop = function() {
+
+		newdate = new Date();
+
+	    	// console.log(newdate-lastdate)
+	    if (newdate-lastdate > 15)
+	    {
+	        lastdate = newdate;
+
+			update();
+			render();
+	    }
+		window.requestAnimationFrame(loop, canvas);
+
+	}
+
+	loop();
+}
+
+/**
+ * Update forground, bird and poops position
+ */
+function update() {
+	frames++;
+
+	if (currentstate === states.Game) {
+
+		best = Math.max(best, score);
+		localStorage.setItem("best", best);
+
+		monster.update();
+		poops.update();
+		sheet_level.update();
+	}
+}
+
+/**
+ * Draws bird and all poops and assets to the canvas
+ */
+function render() {
+	// draw background color
+	ctx.fillRect(0, 0, width, height);
+
+	var s_bg_h = parseInt(width/s_bg.width)+1,
+		s_bg_v = parseInt(height/s_bg.height)+1;
+
+
+	for(var i = 0; i < s_bg_v; i++)
+	{
+		for(var j = 0; j < s_bg_v; j++)
+		{
+			s_bg.draw(ctx, j*s_bg.width, i*s_bg.height);
+		}
+	}
+	// s_bg.draw(ctx, 0, height - s_bg.height);
+	// s_bg.draw(ctx, s_bg.width, height - s_bg.height);
+	
+	// draw background sprites
+	monster.draw(ctx);
+	poops.draw(ctx);
+	sheet_level.draw(ctx);
+	// s_numberS.draw(ctx, 10, 10);
+
+
+	var width2 = width/2; // center of canvas
+
+	if (currentstate === states.Splash) {
+	}
+	if (currentstate === states.Score) {
+		s_numberB.draw(ctx, width2-10, height/2-20, score);
+		// s_numberS.draw(ctx, width2-47, height-262, best, null, 10);
+	} else {
+		s_numberB.draw(ctx, width2-10, 10, score);
+		// s_numberS.draw(ctx, width2-47- s_ground.right.width, 10, score);
+	}
+}
+
+// start and run the game
+main();
+
+</script>
+</body>
+</html>
